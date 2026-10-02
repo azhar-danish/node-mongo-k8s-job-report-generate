@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: mongodb-backup
+
+spec:
+  backoffLimit: 3
+
+  template:
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+        - name: mongodb-backup
+
+          image: mongo:8
+
+          command:
+            - /bin/sh
+            - -c
+
+          args:
+            - |
+              DATE=$(date +%Y-%m-%d-%H-%M-%S)
+
+              echo "Starting MongoDB backup..."
+              echo "Backup date: $DATE"
+
+              mongodump \
+                --uri="$MONGODB_URI" \
+                --db="$MONGODB_DATABASE" \
+                --archive="/backup/${MONGODB_DATABASE}-${DATE}.archive.gz" \
+                --gzip
+
+              if [ $? -eq 0 ]; then
+                echo "MongoDB backup completed successfully."
+                ls -lh /backup
+              else
+                echo "MongoDB backup failed."
+                exit 1
+              fi
+
+              echo "Keeping container alive for 600 seconds..."
+              sleep 600
+
+          env:
+
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGODB_URI
+
+            - name: MONGODB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGODB_DATABASE
+
+          volumeMounts:
+
+            - name: backup-storage
+              mountPath: /backup
+
+      volumes:
+
+        - name: backup-storage
+          emptyDir: {}
