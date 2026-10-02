@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: nodejs-sales-report
+
+spec:
+
+  backoffLimit: 3
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+        - name: report-generator
+
+          image: azhardanish9/node-mongo-k8s-job-report:1.0
+          command: ["/bin/sh", "-c"]
+
+          args:
+            - |
+              npm start
+              EXIT_CODE=$?
+
+              echo "Report generation finished."
+              echo "Keeping container alive for 600 seconds..."
+              sleep 600
+
+              exit $EXIT_CODE
+          env:
+
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGODB_URI
+
+            - name: MONGODB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGODB_DATABASE
+
+          volumeMounts:
+
+            - name: reports
+              mountPath: /reports
+
+      volumes:
+
+        - name: reports
+          emptyDir: {}
